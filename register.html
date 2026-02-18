@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kayıt Ol - WaMark</title>
+  <link rel="icon" type="image/png" href="img/WaMark_Mini_Logo.png">
+  <link href="css/styles.css" rel="stylesheet" />
+  <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+</head>
+<body class="bg-primary">
+  <div id="layoutAuthentication">
+    <div id="layoutAuthentication_content">
+      <main>
+        <div class="container">
+          <div class="row justify-content-center">
+            <div class="col-lg-7">
+              <div class="card shadow-lg border-0 rounded-lg mt-5">
+                <div class="card-header">
+                  <h3 class="text-center font-weight-light my-4">Hesap Oluştur</h3>
+                </div>
+                <div class="card-body">
+                  <form id="registerForm">
+                    <!-- first/last name -->
+                    <div class="row mb-3">
+                      <div class="col-md-6">
+                        <div class="form-floating mb-3 mb-md-0">
+                          <input class="form-control" id="inputFirstName" type="text" placeholder="Enter your first name" required />
+                          <label for="inputFirstName">Ad</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating">
+                          <input class="form-control" id="inputLastName" type="text" placeholder="Enter your last name" required />
+                          <label for="inputLastName">Soyad</label>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- phone -->
+                    <div class="form-floating mb-3">
+                      <input class="form-control" id="inputPhone" type="text" placeholder="Enter your phone number" required />
+                      <label for="inputPhone">Telefon Numarası</label>
+                    </div>
+                    <!-- email -->
+                    <div class="form-floating mb-3">
+                      <input class="form-control" id="inputEmail" type="email" placeholder="name@example.com" required />
+                      <label for="inputEmail">Mail Adresi</label>
+                    </div>
+                    <!-- password -->
+                    <div class="row mb-3">
+                      <div class="col-md-6">
+                        <div class="form-floating mb-3 mb-md-0">
+                          <input class="form-control" id="inputPassword" type="password" placeholder="Create a password" required />
+                          <label for="inputPassword">Şifre</label>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-floating mb-3 mb-md-0">
+                          <input class="form-control" id="inputPasswordConfirm" type="password" placeholder="Confirm password" required />
+                          <label for="inputPasswordConfirm">Şifreyi Onayla</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="d-grid">
+                      <button class="btn btn-primary btn-block" type="submit">Hesap Oluştur</button>
+                    </div>
+                  </form>
+                </div>
+                <div class="card-footer text-center py-3">
+                  <div class="small"><a href="login.html">Hesabınız var mı? Giriş yapın</a></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script>
+    document.getElementById('registerForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const firstName = document.getElementById('inputFirstName').value.trim();
+      const lastName = document.getElementById('inputLastName').value.trim();
+      const email = document.getElementById('inputEmail').value.trim();
+      const phone = document.getElementById('inputPhone').value.trim();
+      const password = document.getElementById('inputPassword').value;
+      const confirmPassword = document.getElementById('inputPasswordConfirm').value;
+
+      if (password !== confirmPassword) {
+        alert("Şifreler eşleşmiyor.");
+        return;
+      }
+
+      const payload = { firstName, lastName, email, phone, password };
+
+      try {
+        const res = await fetch('http://localhost:3001/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          alert('Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz.');
+          window.location.href = 'login.html';
+        } else {
+          alert(data.error || data.message || 'Kayıt başarısız.');
+        }
+      } catch (err) {
+        alert('Sunucu hatası: ' + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

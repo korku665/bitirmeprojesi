@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+  <meta charset="utf-8" />
+  <link rel="icon" type="image/png" href="img/WaMark_Mini_Logo.png?v=6">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
+    <title>Dashboard - WaMark</title>
+    <link href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.min.css" rel="stylesheet" />
+    <link href="css/styles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+    <script src="js/auth-guard.js"></script>
+  </head>
+  <body class="sb-nav-fixed" style="display:none;">
+  <!-- auth-guard will reveal the body when session is valid -->
+    <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
+      <a class="navbar-brand ps-3" href="index.html">
+        <img src="img/WaMark_Full_Logo_White_Title.png" alt="WaMark" style="height:40px; max-width:200px; object-fit:contain;">
+      </a>
+      <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#"><i class="bi bi-list"></i></button>
+      <ul class="navbar-nav ms-auto me-4">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <span id="userFullName"><span id="userNameText">Kullanıcı</span><i class="bi bi-person ms-2"></i></span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+            <li><a class="dropdown-item" href="settings.html">Kullanıcı Ayarları</a></li>
+            <li><hr class="dropdown-divider" /></li>
+            <li><a class="dropdown-item" href="#" id="logoutBtn">Çıkış Yap</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <div id="layoutSidenav">
+      <div id="layoutSidenav_nav">
+        <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
+          <div class="sb-sidenav-menu">
+            <div class="nav">
+              <div class="sb-sidenav-menu-heading">Menü</div>
+              <a class="nav-link active" href="index.html">
+                <div class="sb-nav-link-icon"><i class="bi bi-house"></i></div>
+                Dashboard
+              </a>
+              <!-- Bağlantı Yönetimi sekmesi üstten kaldırıldı -->
+              <a class="nav-link" href="message-management.html">
+                <div class="sb-nav-link-icon"><i class="bi bi-chat-dots"></i></div>
+                Mesaj Gönder
+              </a>
+              <!-- Gruplar Sidebar Menü -->
+              <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseGroups" aria-expanded="false" aria-controls="collapseGroups">
+                  <div class="sb-nav-link-icon"><i class="bi bi-people-fill"></i></div>
+                  Gruplar
+                  <div class="sb-sidenav-collapse-arrow"><i class="bi bi-chevron-down"></i></div>
+                </a>
+                <div class="collapse" id="collapseGroups" data-bs-parent="#sidenavAccordion">
+                  <ul class="nav flex-column ms-3">
+                    <li class="nav-item"><a class="nav-link" href="group-manage.html"><i class="bi bi-list-ul"></i> <span class="ms-1">Mevcut Gruplar</span></a></li>
+                    <li class="nav-item"><a class="nav-link" href="group-create.html"><i class="bi bi-plus-circle"></i> <span class="ms-1">Grup Oluştur</span></a></li>
+                    <li class="nav-item"><a class="nav-link" href="group-person-add.html"><i class="bi bi-person-plus"></i> <span class="ms-1">Kişi Ekle</span></a></li>
+                  </ul>
+                </div>
+              </li>
+              <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseReports" aria-expanded="false" aria-controls="collapseReports">
+                <div class="sb-nav-link-icon"><i class="bi bi-file-earmark-text"></i></div>
+                Raporlar
+                <div class="sb-sidenav-collapse-arrow"><i class="bi bi-chevron-down"></i></div>
+              </a>
+              <div class="collapse" id="collapseReports" data-bs-parent="#sidenavAccordion">
+                <nav class="sb-sidenav-menu-nested nav">
+                  <a class="nav-link" href="reports-sending.html">
+                    <i class="bi bi-arrow-right-circle"></i> <span class="ms-1">Gönderim Raporları</span>
+                  </a>
+                  <a class="nav-link" href="#" onclick="showComingSoon('İlgi Analiz Raporları')">
+                    <i class="bi bi-bar-chart-line"></i> <span class="ms-1">İlgi Analiz Raporları</span>
+                  </a>
+                  <a class="nav-link" href="#" onclick="showComingSoon('Grup Raporları')">
+                    <i class="bi bi-people"></i> <span class="ms-1">Grup Raporları</span>
+                  </a>
+                </nav>
+              </div>
+            </div>
+          </div>
+          <div class="sb-sidenav-footer">
+            <a class="nav-link d-flex align-items-center" href="instance-management.html" id="sidebarLinkInstance" style="color: #adb5bd;">
+              <i class="bi bi-plug me-2" style="font-size:1rem;"></i>
+              <span style="font-size:0.95rem;">Bağlantı Yönetimi</span>
+            </a>
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+              var path = window.location.pathname.split('/').pop();
+              var link = document.getElementById('sidebarLinkInstance');
+              if (link && path === 'instance-management.html') {
+                link.classList.add('active');
+                link.style.color = '#fff';
+              } else if (link) {
+                link.classList.remove('active');
+                link.style.color = '#adb5bd';
+              }
+            });
+            </script>
+          </div>
+        </nav>
+      </div>
+      <div id="layoutSidenav_content">
+        <main>
+          <div class="container-fluid px-4">
+            <h1 class="mt-4">Analiz Dashboard</h1>
+            <ol class="breadcrumb mb-4">
+            </ol>
+            <div class="alert alert-info mb-4 w-100" style="min-width:0;">
+              <strong>Hoş geldiniz!</strong> Bu panel üzerinden WhatsApp mesaj yönetimi, grup ve kullanıcı işlemleri, gönderim raporları ve sistem istatistiklerine kolayca erişebilirsiniz. Tüm işlemleriniz güvenli ve hızlı bir şekilde burada!
+            </div>
+            <div class="row g-4" id="dashboardStats">
+              <!-- Kartlar buraya JS ile eklenecek -->
+            </div>
+            <div class="row mt-5 justify-content-center">
+              <div class="col-xxl-8 col-xl-10 col-lg-11 col-12">
+                <div class="card shadow-sm mb-4">
+                              <div class="card-body">
+                                <h4 class="mb-3">Son 7 Gün Mesaj Trafiği</h4>
+                                <canvas id="last7DaysChart" height="180"></canvas>
+                                <div class="form-text mt-2">Grafikteki tarihler: <b>gg.aa.yyyy - gün</b> formatındadır.</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+          </div>
+        </main>
+        <footer class="py-4 bg-light mt-auto">
+          <div class="container-fluid px-4">
+            <div class="d-flex align-items-center justify-content-between small">
+              <div class="text-muted">Copyright &copy; WaMark 2025</div>
+              <div>
+                <a href="#">Gizlilik Politikası</a>
+                &middot;
+                <a href="#">Şartlar ve Koşullar</a>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/index.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+      const userData = sessionStorage.getItem("user_data") || sessionStorage.getItem("user");
+      if (userData) {
+        try {
+        const user = JSON.parse(userData);
+        const fullName = (user.firstName || user.first_name || "") + " " + (user.lastName || user.last_name || "");
+        document.getElementById("userNameText").textContent = fullName.trim() || "Kullanıcı";
+        document.getElementById("sidebarUserName").textContent = fullName.trim() || "Kullanıcı";
+        } catch {}
+      }
+      const logoutBtn = document.getElementById("logoutBtn");
+      if (logoutBtn) {
+        logoutBtn.addEventListener("click", function() {
+          // Clear sessionStorage auth only
+          sessionStorage.removeItem("user");
+          sessionStorage.removeItem("user_token");
+          sessionStorage.removeItem("token");
+          window.location.href = "main.html";
+        });
+      }
+      });
+    </script>
+  </body>
+</html>

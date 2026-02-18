@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Kullanıcı Ayarları - WaMark</title>
+  <link rel="icon" type="image/png" href="img/WaMark_Mini_Logo.png">
+  <link href="css/styles.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
+  <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+</head>
+    <body class="sb-nav-fixed" style="display:none;">
+    <script src="js/auth-guard.js"></script>
+      <!-- auth-guard will handle auth and reveal the body -->
+  <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
+  <a class="navbar-brand ps-3" href="index.html">
+    <img src="img/WaMark_Full_Logo_White_Title.png" alt="WaMark" style="height:40px; max-width:200px; object-fit:contain;">
+  </a>
+    <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#"><i class="bi bi-list"></i></button>
+  <ul class="navbar-nav ms-auto me-4">
+      <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <span id="userFullName"><span id="userNameText"></span> <i class="bi bi-person ms-2"></i></span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+          <li><a class="dropdown-item" href="settings.html">Kullanıcı Ayarları</a></li>
+          <li><hr class="dropdown-divider" /></li>
+          <li><a class="dropdown-item" href="#" id="logoutBtn">Çıkış Yap</a></li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <div id="layoutSidenav">
+    <!-- Sidebar -->
+    <div id="layoutSidenav_nav">
+      <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
+        <div class="sb-sidenav-menu">
+          <div class="nav">
+            <div class="sb-sidenav-menu-heading">Menü</div>
+            <a class="nav-link" href="index.html">
+              <div class="sb-nav-link-icon"><i class="bi bi-house"></i></div>
+              Dashboard
+            </a>
+            <!-- Bağlantı Yönetimi sekmesi üstten kaldırıldı -->
+<script>
+// Çıkış yap fonksiyonu (eksikse ekle)
+document.addEventListener('DOMContentLoaded', function() {
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+      logoutBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        sessionStorage.clear();
+        window.location.href = 'main.html';
+      });
+  }
+});
+</script>
+            <a class="nav-link" href="message-management.html">
+                    <div class="sb-nav-link-icon"><i class="bi bi-chat-dots"></i></div>
+                    Mesaj Gönder
+                  </a>
+            <!-- Gruplar Sidebar Menü -->
+            <li class="nav-item">
+              <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseGroups" aria-expanded="false" aria-controls="collapseGroups">
+                <div class="sb-nav-link-icon"><i class="bi bi-people-fill"></i></div>
+                Gruplar
+                <div class="sb-sidenav-collapse-arrow"><i class="bi bi-chevron-down"></i></div>
+              </a>
+              <div class="collapse" id="collapseGroups" data-bs-parent="#sidenavAccordion">
+                <ul class="nav flex-column ms-3">
+                  <li class="nav-item"><a class="nav-link" href="group-manage.html"><i class="bi bi-list-ul"></i> <span class="ms-1">Mevcut Gruplar</span></a></li>
+                  <li class="nav-item"><a class="nav-link" href="group-create.html"><i class="bi bi-plus-circle"></i> <span class="ms-1">Grup Oluştur</span></a></li>
+                  <li class="nav-item"><a class="nav-link" href="group-person-add.html"><i class="bi bi-person-plus"></i> <span class="ms-1">Kişi Ekle</span></a></li>
+                </ul>
+              </div>
+            </li>
+            <a class="nav-link collapsed" href="#" data-bs-toggle="collapse" data-bs-target="#collapseReports" aria-expanded="false" aria-controls="collapseReports">
+              <div class="sb-nav-link-icon"><i class="bi bi-file-earmark-text"></i></div>
+              Raporlar
+              <div class="sb-sidenav-collapse-arrow"><i class="bi bi-chevron-down"></i></div>
+            </a>
+            <div class="collapse" id="collapseReports" aria-labelledby="headingOne" data-bs-parent="#sidenavAccordion">
+              <nav class="sb-sidenav-menu-nested nav">
+                <a class="nav-link" href="reports-sending.html">
+                  <i class="bi bi-arrow-right-circle me-2"></i> Gönderim Raporları
+                </a>
+                <a class="nav-link" href="#" onclick="showComingSoon('İlgi Analiz Raporları')">
+                  <i class="bi bi-bar-chart-line me-2"></i> İlgi Analiz Raporları
+                </a>
+                <a class="nav-link" href="#" onclick="showComingSoon('Grup Raporları')">
+                  <i class="bi bi-people me-2"></i> Grup Raporları
+                </a>
+              </nav>
+            </div>
+          </div>
+        </div>
+        <div class="sb-sidenav-footer">
+          <a class="nav-link d-flex align-items-center" href="instance-management.html" id="sidebarLinkInstance" style="color: #adb5bd;">
+            <i class="bi bi-plug me-2" style="font-size:1rem;"></i>
+            <span style="font-size:0.95rem;">Bağlantı Yönetimi</span>
+          </a>
+          <script>
+          document.addEventListener('DOMContentLoaded', function() {
+            var path = window.location.pathname.split('/').pop();
+            var link = document.getElementById('sidebarLinkInstance');
+            if (link && path === 'instance-management.html') {
+              link.classList.add('active');
+              link.style.color = '#fff';
+            } else if (link) {
+              link.classList.remove('active');
+              link.style.color = '#adb5bd';
+            }
+          });
+          </script>
+        </div>
+      </nav>
+    </div>
+
+    <!-- Content -->
+    <div id="layoutSidenav_content">
+      <main>
+        <div class="container-fluid px-4">
+          <h1 class="mt-4">Kullanıcı Ayarları</h1>
+
+          <ol class="breadcrumb mb-4">
+            <li class="breadcrumb-item active">Bilgilerim</li>
+          </ol>
+
+          <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-person"></i> Profil Bilgileri</div>
+            <div class="card-body">
+              <p><strong>Ad:</strong> <span id="userFirstName">-</span></p>
+              <p><strong>Soyad:</strong> <span id="userLastName">-</span></p>
+              <p><strong>Email:</strong> <span id="userEmail">-</span></p>
+              <p><strong>Telefon:</strong> <span id="userPhone">-</span></p>
+              <p><strong>Kayıt Tarihi:</strong> <span id="userCreatedAt">-</span></p>
+            </div>
+          </div>
+
+
+          <!-- Şifre değiştirme -->
+          <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-key"></i> Şifre Değiştir</div>
+            <div class="card-body">
+              <button id="showChangePasswordBtn" class="btn btn-warning">Şifre Değiştir</button>
+              <div id="passwordSection" style="display:none; margin-top: 20px;">
+                <button id="sendCodeBtn" class="btn btn-secondary mb-2">Mail ile Kod Gönder</button>
+                <input type="text" id="resetCode" class="form-control mb-2" placeholder="Kod">
+                <input type="password" id="newPassword" class="form-control mb-2" placeholder="Yeni Şifre">
+                <input type="password" id="newPassword2" class="form-control mb-2" placeholder="Yeni Şifre (Tekrar)">
+                <button id="changePasswordBtn" class="btn btn-primary">Onayla</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/settings.js"></script>
+  <!-- Yakında Modal -->
+  <div class="modal fade" id="comingSoonModal" tabindex="-1" aria-labelledby="comingSoonModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="comingSoonModalLabel">Bilgi</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+        </div>
+        <div class="modal-body" id="comingSoonModalBody">
+          Yakında
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modalı tetikleyen JS -->
+  <script>
+  function showComingSoon(reportName) {
+    document.getElementById('comingSoonModalBody').textContent = reportName + ' - Yakında';
+    var modal = new bootstrap.Modal(document.getElementById('comingSoonModal'));
+    modal.show();
+  }
+  </script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const userData = sessionStorage.getItem("user_data") || sessionStorage.getItem("user");
+  const userToken = sessionStorage.getItem("user_token");
+  let fullName = "Kullanıcı";
+  if (userData) {
+    try {
+      const user = JSON.parse(userData);
+      fullName = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+      if (!fullName && userToken) fullName = `Token: ${userToken.slice(0, 6)}...`;
+    } catch (err) {
+      console.error("Kullanıcı bilgileri parse edilemedi:", err);
+    }
+  }
+  const nameSpan = document.getElementById("userNameText");
+  const sidebarUser = document.getElementById("sidebarUserName");
+  if(nameSpan) nameSpan.textContent = fullName || "Kullanıcı";
+  if(sidebarUser) sidebarUser.textContent = fullName || "Kullanıcı";
+  const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn) {
+    logoutBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      sessionStorage.clear();
+      window.location.href = "main.html";
+    });
+  }
+});
+// Enforce token-based access control
+const token = sessionStorage.getItem("token");
+if (!token) {
+}
+</script>
+</body>
+</html>

@@ -10,7 +10,9 @@ const { verifyToken } = require('./middlewares/auth.middleware');
 const PORT = process.env.PORT || 3001;
 const app = express();
 
-app.use(express.json());
+// Body parser limiti artırıldı (resim base64 için)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors());
 app.use(express.static(path.join(__dirname, '../'), { index: 'main.html' }));
 

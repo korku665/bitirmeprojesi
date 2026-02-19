@@ -1,5 +1,190 @@
 // message-management.js
 // Mesaj gönderme ile ilgili tüm fonksiyonlar
+
+// ==================== RESİM İŞLEME FONKSİYONLARI ====================
+
+// Resim boyut ve format kontrolü (WhatsApp standartları)
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_IMAGES_COUNT = 10; // Maksimum 10 resim
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+function validateImage(file) {
+  if (!file) return { valid: false, error: 'Dosya seçilmedi.' };
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return { valid: false, error: 'Desteklenmeyen format. Lütfen JPG, PNG, GIF veya WEBP seçin.' };
+  }
+  if (file.size > MAX_IMAGE_SIZE) {
+    return { valid: false, error: 'Dosya çok büyük. Maksimum 5MB olmalı.' };
+  }
+  return { valid: true };
+}
+
+// Birden fazla resim doğrulama
+function validateImages(files) {
+  if (!files || files.length === 0) return { valid: false, error: 'Dosya seçilmedi.' };
+  if (files.length > MAX_IMAGES_COUNT) {
+    return { valid: false, error: `En fazla ${MAX_IMAGES_COUNT} resim seçebilirsiniz.` };
+  }
+  for (let i = 0; i < files.length; i++) {
+    const validation = validateImage(files[i]);
+    if (!validation.valid) {
+      return { valid: false, error: `${files[i].name}: ${validation.error}` };
+    }
+  }
+  return { valid: true };
+}
+
+// Dosyayı base64'e çevir
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // data:image/png;base64,xxxx formatından sadece base64 kısmını al
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Resim önizleme göster (tek resim)
+function showImagePreview(previewId, file) {
+  const previewDiv = document.getElementById(previewId);
+  if (!previewDiv) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    previewDiv.innerHTML = `
+      <img src="${e.target.result}" class="img-thumbnail" style="max-height:100px; max-width:150px;" />
+      <small class="d-block text-muted mt-1">${file.name} (${(file.size / 1024).toFixed(1)} KB)</small>
+    `;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Çoklu resim önizleme göster
+function showMultipleImagePreviews(previewId, files) {
+  const previewDiv = document.getElementById(previewId);
+  if (!previewDiv) return;
+  previewDiv.innerHTML = '';
+  
+  Array.from(files).forEach((file, index) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imgContainer = document.createElement('div');
+      imgContainer.className = 'd-inline-block me-2 mb-2 position-relative';
+      imgContainer.innerHTML = `
+        <img src="${e.target.result}" class="img-thumbnail" style="max-height:80px; max-width:100px;" />
+        <small class="d-block text-muted text-center" style="font-size:10px;">${file.name.substring(0, 15)}${file.name.length > 15 ? '...' : ''}</small>
+      `;
+      previewDiv.appendChild(imgContainer);
+    };
+    reader.readAsDataURL(file);
+  });
+  
+  // Toplam bilgi
+  const totalSize = Array.from(files).reduce((sum, f) => sum + f.size, 0);
+  const infoDiv = document.createElement('div');
+  infoDiv.className = 'text-muted mt-1';
+  infoDiv.innerHTML = `<small>${files.length} resim seçildi (${(totalSize / 1024).toFixed(1)} KB)</small>`;
+  previewDiv.appendChild(infoDiv);
+}
+
+// Resim önizlemeyi temizle
+function clearImagePreview(previewId) {
+  const previewDiv = document.getElementById(previewId);
+  if (previewDiv) previewDiv.innerHTML = '';
+}
+
+// Global değişken: seçilen resimler (suffix bazlı) - artık array tutacak
+const selectedImages = {};
+
+// Resim input değişikliği event listener'ı (delegated) - çoklu resim destekli
+document.addEventListener('change', async (e) => {
+  if (!e.target || e.target.type !== 'file') return;
+  const inputId = e.target.id;
+  if (!inputId) return;
+
+  // singleMsgImage, bulkMsgImage, multiMsgImage veya instance-scoped versiyonları
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+
+  // Çoklu dosya kontrolü
+  const validation = validateImages(files);
+  if (!validation.valid) {
+    showPopupAlert(validation.error, 'danger');
+    e.target.value = '';
+    return;
+  }
+
+  // Suffix'i bul (örn: singleMsgImage-kk665 -> -kk665)
+  let suffix = '';
+  let baseId = '';
+  if (inputId.startsWith('singleMsgImage')) {
+    baseId = 'singleMsgImage';
+    suffix = inputId.replace('singleMsgImage', '');
+  } else if (inputId.startsWith('bulkMsgImage')) {
+    baseId = 'bulkMsgImage';
+    suffix = inputId.replace('bulkMsgImage', '');
+  } else if (inputId.startsWith('multiMsgImage')) {
+    baseId = 'multiMsgImage';
+    suffix = inputId.replace('multiMsgImage', '');
+  } else {
+    return;
+  }
+
+  try {
+    // Tüm dosyaları base64'e çevir
+    const base64Array = await Promise.all(Array.from(files).map(f => fileToBase64(f)));
+    selectedImages[inputId] = base64Array; // Artık array olarak saklıyoruz
+
+    // Önizleme göster
+    const previewId = baseId + 'Preview' + suffix;
+    if (files.length === 1) {
+      showImagePreview(previewId, files[0]);
+    } else {
+      showMultipleImagePreviews(previewId, files);
+    }
+
+    // Kaldır butonunu göster
+    const clearBtn = document.getElementById(baseId + 'Clear' + suffix);
+    if (clearBtn) clearBtn.style.display = '';
+  } catch (err) {
+    showPopupAlert('Resim yüklenirken hata: ' + err.message, 'danger');
+  }
+});
+
+// Kaldır butonu event listener'ı (delegated)
+document.addEventListener('click', (e) => {
+  if (!e.target || !e.target.id) return;
+  const btnId = e.target.id;
+
+  let baseId = '';
+  let suffix = '';
+  if (btnId.startsWith('singleMsgImageClear')) {
+    baseId = 'singleMsgImage';
+    suffix = btnId.replace('singleMsgImageClear', '');
+  } else if (btnId.startsWith('bulkMsgImageClear')) {
+    baseId = 'bulkMsgImage';
+    suffix = btnId.replace('bulkMsgImageClear', '');
+  } else if (btnId.startsWith('multiMsgImageClear')) {
+    baseId = 'multiMsgImage';
+    suffix = btnId.replace('multiMsgImageClear', '');
+  } else {
+    return;
+  }
+
+  const inputId = baseId + suffix;
+  const input = document.getElementById(inputId);
+  if (input) input.value = '';
+
+  delete selectedImages[inputId];
+  clearImagePreview(baseId + 'Preview' + suffix);
+  e.target.style.display = 'none';
+});
+
+// ==================== RESİM İŞLEME FONKSİYONLARI SONU ====================
+
 // Bugün gönderilen başarılı mesaj sayısını çek ve arayüze yaz
 async function fetchTodaySentCount() {
   // Önce localStorage'dan bugünkü sayaç varsa onu göster
@@ -580,8 +765,17 @@ const singleMessageContent = `
       <input type="text" class="form-control" id="singleMsgNumber" placeholder="905xxxxxxxxx" required />
     </div>
     <div class="mb-3">
-      <label for="singleMsgText" class="form-label">Mesaj</label>
-      <textarea class="form-control" id="singleMsgText" rows="3" required></textarea>
+      <label for="singleMsgText" class="form-label">Mesaj <small class="text-muted">(Resim varsa opsiyonel)</small></label>
+      <textarea class="form-control" id="singleMsgText" rows="3" placeholder="Mesajınızı yazın veya sadece resim gönderin..."></textarea>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Resim Ekle (Opsiyonel - Çoklu seçilebilir)</label>
+      <div class="input-group">
+        <input type="file" class="form-control" id="singleMsgImage" accept="image/jpeg,image/png,image/gif,image/webp" multiple />
+        <button type="button" class="btn btn-outline-danger" id="singleMsgImageClear" style="display:none;">Kaldır</button>
+      </div>
+      <div class="form-text">Max 5MB/resim, en fazla 10 resim - JPG, PNG, GIF, WEBP</div>
+      <div id="singleMsgImagePreview" class="mt-2"></div>
     </div>
     <button type="submit" class="btn btn-success">Gönder</button>
   </form>
@@ -616,8 +810,17 @@ const bulkMessageContent = `
       <input type="text" class="form-control" id="bulkNumbers" placeholder="905522334455,905511112233">
     </div>
     <div class="mb-3">
-      <label for="bulkMessage" class="form-label">Mesaj</label>
-      <textarea class="form-control" id="bulkMessage" rows="3" placeholder="Tüm alıcılara gönderilecek mesaj"></textarea>
+      <label for="bulkMessage" class="form-label">Mesaj <small class="text-muted">(Resim varsa opsiyonel)</small></label>
+      <textarea class="form-control" id="bulkMessage" rows="3" placeholder="Mesajınızı yazın veya sadece resim gönderin..."></textarea>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Resim Ekle (Opsiyonel - Çoklu seçilebilir)</label>
+      <div class="input-group">
+        <input type="file" class="form-control" id="bulkMsgImage" accept="image/jpeg,image/png,image/gif,image/webp" multiple />
+        <button type="button" class="btn btn-outline-danger" id="bulkMsgImageClear" style="display:none;">Kaldır</button>
+      </div>
+      <div class="form-text">Max 5MB/resim, en fazla 10 resim - JPG, PNG, GIF, WEBP</div>
+      <div id="bulkMsgImagePreview" class="mt-2"></div>
     </div>
     <button type="submit" class="btn btn-warning">Toplu Gönder</button>
   </form>
@@ -644,9 +847,29 @@ const multiMessageContent = `
     <div class="mb-3" style="max-height:220px;overflow:auto;">
       <div id="multiMembersList" class="list-group small border rounded" style="min-height:60px;"></div>
     </div>
+    <div id="multiGuide" style="display:none;">
+      <div class="alert alert-info mb-3" role="alert" style="font-size:0.97em;">
+        <strong>Çoklu Mesaj Modülü ile seçtiğiniz kişilere mesaj gönderebilirsiniz.</strong><br>
+        <strong>5 Kişiden daha az -> Direkt Gönderim. / 5 Kişi ve Fazlası -> Süreli (Toplu) Gönderim.</strong><br>
+        <strong>Kişisel Alanlar Kullanımı:</strong><br>
+        Mesajınızda <code>%%alanAdi%%</code> formatında yazarsanız, gönderim sırasında her alıcıya ait bilgiler otomatik olarak yerine konur.<br>
+        <strong>Örnek:</strong> <span style="white-space:pre;">"Merhaba %%isim%%, üyelik tarihiniz: %%üyeliktarihi%%"</span><br>
+        <strong>Desteklenen alanlar:</strong> %%isim%%, %%soyisim%%, %%telefon%%, %%şehir%%, %%cinsiyet%%, %%doğumtarihi%%, %%üyeliktarihi%%, %%sonsipariştarihi%%,
+        <br> <strong>Özel Alanlar:</strong> %%özelalan1%%, %%özelalan2%%, %%özelalan3%%, %%özelalan4%%, %%özelalan5%%, %%özelalan6%%, %%özelalan7%%, %%özelalan8%%, %%özelalan9%%, %%özelalan10%%, %%özelalan11%%, %%özelalan12%%, %%özelalan13%%
+      </div>
+    </div>
     <div class="mb-3">
-      <label for="multiMsgText" class="form-label">Mesaj</label>
-      <textarea class="form-control" id="multiMsgText" rows="3" required></textarea>
+      <label for="multiMsgText" class="form-label">Mesaj <small class="text-muted">(Resim varsa opsiyonel)</small></label>
+      <textarea class="form-control" id="multiMsgText" rows="3" placeholder="Mesajınızı yazın veya sadece resim gönderin..."></textarea>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Resim Ekle (Opsiyonel - Çoklu seçilebilir)</label>
+      <div class="input-group">
+        <input type="file" class="form-control" id="multiMsgImage" accept="image/jpeg,image/png,image/gif,image/webp" multiple />
+        <button type="button" class="btn btn-outline-danger" id="multiMsgImageClear" style="display:none;">Kaldır</button>
+      </div>
+      <div class="form-text">Max 5MB/resim, en fazla 10 resim - JPG, PNG, GIF, WEBP</div>
+      <div id="multiMsgImagePreview" class="mt-2"></div>
     </div>
     <button type="submit" class="btn btn-secondary">Seçilen Kişilere Gönder</button>
   </form>
@@ -668,18 +891,61 @@ document.addEventListener('submit', async (e) => {
     const suffix = formId === 'singleMessageForm' ? '' : '-' + formId.split('-').slice(1).join('-');
     const number = document.getElementById(`singleMsgNumber${suffix}`)?.value?.trim();
     const message = document.getElementById(`singleMsgText${suffix}`)?.value?.trim();
-    if (!number || !message) { showPopupAlert('Numara ve mesaj gerekli.', 'danger'); return; }
+    
+    // Resim kontrolü - artık array
+    const imageInputId = `singleMsgImage${suffix}`;
+    const mediaBase64Array = selectedImages[imageInputId] || null;
+    
+    if (!number) { showPopupAlert('Numara gerekli.', 'danger'); return; }
+    if (!message && !mediaBase64Array) { showPopupAlert('Mesaj veya resim gerekli.', 'danger'); return; }
+    
+    // Butonu disable et
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Gönderiliyor...';
+    }
+    
     try {
       const instanceName = await getFirstActiveInstanceName();
-      const res = await fetch('http://localhost:3001/api/messages/single', {
-        method: 'POST',
-  headers: { 'Authorization': `Bearer ${sessionStorage.getItem('user_token') || sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceName, number, message })
-      });
-      const data = await res.json();
-      if (res.ok) { showPopupAlert('Mesaj gönderildi.', 'success'); e.target.reset(); await fetchTodaySentCount(); }
-      else { showPopupAlert('Gönderim hatası: ' + (data.error || data.message), 'danger'); }
+      
+      // Resim varsa resimli endpoint, yoksa normal endpoint
+      if (mediaBase64Array && mediaBase64Array.length > 0) {
+        const res = await fetch('http://localhost:3001/api/messages/single-image', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('user_token') || sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instanceName, number, caption: message || '', mediaBase64Array })
+        });
+        const data = await res.json();
+        if (res.ok) { 
+          showPopupAlert(`${mediaBase64Array.length} resimli mesaj gönderildi.`, 'success'); 
+          e.target.reset(); 
+          delete selectedImages[imageInputId];
+          clearImagePreview(`singleMsgImagePreview${suffix}`);
+          const clearBtn = document.getElementById(`singleMsgImageClear${suffix}`);
+          if (clearBtn) clearBtn.style.display = 'none';
+          await fetchTodaySentCount(); 
+        }
+        else { showPopupAlert('Gönderim hatası: ' + (data.error || data.message), 'danger'); }
+      } else {
+        const res = await fetch('http://localhost:3001/api/messages/single', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('user_token') || sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instanceName, number, message })
+        });
+        const data = await res.json();
+        if (res.ok) { showPopupAlert('Mesaj gönderildi.', 'success'); e.target.reset(); await fetchTodaySentCount(); }
+        else { showPopupAlert('Gönderim hatası: ' + (data.error || data.message), 'danger'); }
+      }
     } catch (err) { showPopupAlert('Sunucu hatası: ' + err.message, 'danger'); }
+    finally {
+      // Butonu tekrar aktif et
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      }
+    }
   }
 
   // Toplu (support instance-scoped ids like bulkMessageForm-instance)
@@ -691,19 +957,60 @@ document.addEventListener('submit', async (e) => {
     const numbersRaw = document.getElementById(`bulkNumbers${suffix}`)?.value?.trim();
     const message = document.getElementById(`bulkMessage${suffix}`)?.value?.trim();
     const numbers = numbersRaw ? numbersRaw.split(',').map(n => n.trim()) : [];
-    if (!message) { showPopupAlert('Mesaj metni gerekli.', 'danger'); return; }
+    
+    // Resim kontrolü - artık array
+    const imageInputId = `bulkMsgImage${suffix}`;
+    const mediaBase64Array = selectedImages[imageInputId] || null;
+    
+    if (!message && !mediaBase64Array) { showPopupAlert('Mesaj veya resim gerekli.', 'danger'); return; }
     if (!groupId && numbers.length === 0) { showPopupAlert('Lütfen grup seçin veya numara girin.', 'danger'); return; }
+    
+    // Butonu disable et
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Gönderiliyor...';
+    }
+    
     try {
       const instanceName = await getFirstActiveInstanceName();
-      const res = await fetch('http://localhost:3001/api/messages/bulk', {
-        method: 'POST',
-  headers: { 'Authorization': `Bearer ${sessionStorage.getItem('user_token') || sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceName, groupId, numbers, message, testMode: false })
-      });
-      const data = await res.json();
-      if (res.ok) { showPopupAlert('Toplu gönderim başlatıldı.', 'success'); e.target.reset(); }
-      else { showPopupAlert('Gönderim hatası: ' + (data.error || data.message), 'danger'); }
+      
+      // Resim varsa resimli endpoint, yoksa normal endpoint
+      if (mediaBase64Array && mediaBase64Array.length > 0) {
+        const res = await fetch('http://localhost:3001/api/messages/bulk-image', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('user_token') || sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instanceName, groupId, numbers, caption: message || '', mediaBase64Array, testMode: false })
+        });
+        const data = await res.json();
+        if (res.ok) { 
+          showPopupAlert(`Toplu resim gönderimi başlatıldı (${mediaBase64Array.length} resim).`, 'success'); 
+          e.target.reset();
+          delete selectedImages[imageInputId];
+          clearImagePreview(`bulkMsgImagePreview${suffix}`);
+          const clearBtn = document.getElementById(`bulkMsgImageClear${suffix}`);
+          if (clearBtn) clearBtn.style.display = 'none';
+        }
+        else { showPopupAlert('Gönderim hatası: ' + (data.error || data.message), 'danger'); }
+      } else {
+        const res = await fetch('http://localhost:3001/api/messages/bulk', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('user_token') || sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instanceName, groupId, numbers, message, testMode: false })
+        });
+        const data = await res.json();
+        if (res.ok) { showPopupAlert('Toplu gönderim başlatıldı.', 'success'); e.target.reset(); }
+        else { showPopupAlert('Gönderim hatası: ' + (data.error || data.message), 'danger'); }
+      }
     } catch (err) { showPopupAlert('Sunucu hatası: ' + err.message, 'danger'); }
+    finally {
+      // Butonu tekrar aktif et
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      }
+    }
   }
 
   // Çoklu (support instance-scoped ids like multiMessageForm-instance)
@@ -715,16 +1022,86 @@ document.addEventListener('submit', async (e) => {
     const checked = Array.from(membersSelector || []);
     const members = checked.map(cb => JSON.parse(cb.value));
     const message = document.getElementById(`multiMsgText${suffix}`)?.value?.trim();
+    
+    // Resim kontrolü - artık array
+    const imageInputId = `multiMsgImage${suffix}`;
+    const mediaBase64Array = selectedImages[imageInputId] || null;
+    
     if (members.length === 0) { showPopupAlert('Lütfen en az bir kişi seçin.', 'warning'); return; }
-    if (!message) { showPopupAlert('Mesaj metni gerekli.', 'danger'); return; }
+    if (!message && !mediaBase64Array) { showPopupAlert('Mesaj veya resim gerekli.', 'danger'); return; }
+    
+    // Butonu disable et
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Gönderiliyor...';
+    }
+    
     try {
+      const instanceName = await getFirstActiveInstanceName();
+      
+      // Resim varsa
+      if (mediaBase64Array && mediaBase64Array.length > 0) {
+        // 5+ kişi ise toplu resimli endpoint'e yönlendir
+        if (members.length >= 5) {
+          const numbers = members.map(m => (m.phone || m.telefon || m.gsm || m.number || '')).map(String).map(s => s.trim()).filter(Boolean);
+          if (numbers.length === 0) { 
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; }
+            showPopupAlert('Seçilen kişilerden telefon numarası alınamadı.', 'danger'); 
+            return; 
+          }
+          showPopupAlert(`Seçilen ${numbers.length} kişi toplu resim gönderime yönlendiriliyor (${mediaBase64Array.length} resim).`, 'info');
+          const res = await fetch('http://localhost:3001/api/messages/bulk-image', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionStorage.getItem('user_token') || sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instanceName, groupId: null, numbers, caption: message || '', mediaBase64Array, testMode: false })
+          });
+          const data = await res.json();
+          if (res.ok) { 
+            showPopupAlert(`Toplu resim gönderimi başlatıldı (${mediaBase64Array.length} resim).`, 'success'); 
+            e.target.reset();
+            delete selectedImages[imageInputId];
+            clearImagePreview(`multiMsgImagePreview${suffix}`);
+            const clearBtn = document.getElementById(`multiMsgImageClear${suffix}`);
+            if (clearBtn) clearBtn.style.display = 'none';
+          }
+          else { showPopupAlert('Gönderim hatası: ' + (data.error || data.message), 'danger'); }
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; }
+          return;
+        }
+        
+        // 5'ten az kişiye çoklu resim gönder
+        const res = await fetch('http://localhost:3001/api/messages/multi-image', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('user_token') || sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instanceName, members, caption: message || '', mediaBase64Array })
+        });
+        const data = await res.json();
+        if (res.ok) { 
+          showPopupAlert((data.success ? data.success + ' kişiye ' + mediaBase64Array.length + ' resim gönderildi.' : 'Resimler gönderildi.'), 'success'); 
+          e.target.reset();
+          delete selectedImages[imageInputId];
+          clearImagePreview(`multiMsgImagePreview${suffix}`);
+          const clearBtn = document.getElementById(`multiMsgImageClear${suffix}`);
+          if (clearBtn) clearBtn.style.display = 'none';
+        }
+        else { showPopupAlert('Gönderim hatası: ' + (data.error || data.message), 'danger'); }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; }
+        return;
+      }
+      
+      // Resim yoksa normal metin akışı
       // If selected recipients are 5 or more, route to the bulk sender which handles paced sending
       if (members.length >= 5) {
         // extract numbers from member objects
         const numbers = members.map(m => (m.phone || m.telefon || m.gsm || m.number || '') ).map(String).map(s => s.trim()).filter(Boolean);
-        if (numbers.length === 0) { showPopupAlert('Seçilen kişilerden telefon numarası alınamadı.', 'danger'); return; }
+        if (numbers.length === 0) { 
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; }
+            showPopupAlert('Seçilen kişilerden telefon numarası alınamadı.', 'danger'); 
+            return; 
+          }
         showPopupAlert(`Seçilen ${numbers.length} kişi toplu göndermeye yönlendiriliyor. Gönderimler aralıklı yapılacaktır.`, 'info');
-        const instanceName = await getFirstActiveInstanceName();
         try {
           const res = await fetch('http://localhost:3001/api/messages/bulk', {
             method: 'POST',
@@ -735,11 +1112,11 @@ document.addEventListener('submit', async (e) => {
           if (res.ok) { showPopupAlert('Toplu gönderim başlatıldı. İşlem arka planda devam edecektir.', 'success'); e.target.reset(); }
           else { showPopupAlert('Toplu gönderim hatası: ' + (data.error || data.message), 'danger'); }
         } catch (err) { showPopupAlert('Toplu gönderim sunucu hatası: ' + err.message, 'danger'); }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; }
         return;
       }
 
       // fewer than 5 recipients: use direct multi endpoint for immediate send
-      const instanceName = await getFirstActiveInstanceName();
       const res = await fetch('http://localhost:3001/api/messages/multi', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${sessionStorage.getItem('user_token') || sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' },
@@ -749,6 +1126,13 @@ document.addEventListener('submit', async (e) => {
       if (res.ok) { showPopupAlert((data.success ? data.success + ' kişiye gönderildi.' : 'Gönderildi.'), 'success'); e.target.reset(); }
       else { showPopupAlert('Gönderim hatası: ' + (data.error || data.message), 'danger'); }
     } catch (err) { showPopupAlert('Sunucu hatası: ' + err.message, 'danger'); }
+    finally {
+      // Butonu tekrar aktif et
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      }
+    }
   }
 });
 
@@ -901,3 +1285,26 @@ function openOnlyThis(contentId, button) {
 
 // Mevcut addMessageFeaturesToInstance içinde butonlar oluşturulduğu yerde artık data-instance-id ve panel-ids kullanılacak
 
+// Çoklu mesaj kişi seçildiğinde guide göster/gizle
+document.addEventListener('change', (e) => {
+  // multiMembersList içindeki checkbox'ları dinle
+  if (e.target && e.target.type === 'checkbox' && e.target.hasAttribute('data-member')) {
+    // En yakın multiMembersList'i bul
+    const membersList = e.target.closest('[id^="multiMembersList"]');
+    if (!membersList) return;
+    
+    // Suffix'i çıkar
+    const listId = membersList.id;
+    const suffix = listId.replace('multiMembersList', '');
+    
+    // Guide element'ini bul
+    const guide = document.getElementById(`multiGuide${suffix}`);
+    if (!guide) return;
+    
+    // Seçili checkbox sayısını kontrol et
+    const checkedCount = membersList.querySelectorAll('input[type="checkbox"][data-member]:checked').length;
+    
+    // En az bir kişi seçiliyse guide'ı göster
+    guide.style.display = checkedCount > 0 ? 'block' : 'none';
+  }
+});

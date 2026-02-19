@@ -1,7 +1,9 @@
 // Tekli mesaj gönderme (rapor ve sayaç için)
 async function sendSingleMessage(req, res) {
   try {
-    const { instanceName, number, message } = req.body;
+    const { instanceName, message } = req.body;
+    // Numarayı normalize et
+    const number = normalizePhoneNumber(req.body.number);
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
     const userId = req.user && req.user.id ? req.user.id : req.userId;
@@ -73,7 +75,7 @@ async function sendMultiMessages(req, res) {
     const reportId = reportResult.insertId;
     // Sadece seçilen kişileri kaydet
     const insertPendingPromises = members.map(member => {
-      const number = member.phone || member.telefon || member.gsm || member.number;
+      const number = normalizePhoneNumber(member.phone || member.telefon || member.gsm || member.number);
       // Sadece seçilen kişilerin bilgileri
       // Normalize name/surname using multiple possible keys
       const nameVal = member.name || member.isim || member.fullName || member.ad || member.firstName || member.firstname || '';
@@ -88,7 +90,7 @@ async function sendMultiMessages(req, res) {
     let idx = 0;
     for (const member of members) {
       idx++;
-      const number = member.phone || member.telefon || member.gsm || member.number;
+      const number = normalizePhoneNumber(member.phone || member.telefon || member.gsm || member.number);
       if (!number) continue;
       const personalizedMsg = replacePlaceholders(message, member);
       // Log sending with display name
@@ -144,6 +146,44 @@ const evoApiBaseUrl = "http://localhost:8080";
 const db = require('../config/db'); // DB bağlantısı
 
 const TEST_MODE_ENABLED = false; // backend üzerinden test modunu aç/kapat
+
+// ==================== NUMARA NORMALİZASYONU ====================
+// Kullanıcı hangi formatta yazarsa yazsın 90xxxxxxxxxx formatına çevirir
+// Örnekler: 5522457373, 05522457373, 552 245 7373, +90 552 245 73 73 -> 905522457373
+function normalizePhoneNumber(phone) {
+  if (!phone) return '';
+  
+  // String'e çevir ve tüm boşluk, tire, parantez, nokta vs. kaldır
+  let cleaned = String(phone).replace(/[\s\-\(\)\.\+]/g, '');
+  
+  // Sadece rakamları al
+  cleaned = cleaned.replace(/\D/g, '');
+  
+  if (!cleaned) return '';
+  
+  // Başındaki 0'ları kaldır (05522457373 -> 5522457373)
+  cleaned = cleaned.replace(/^0+/, '');
+  
+  // Eğer 90 ile başlıyorsa ve 12 haneli ise (905522457373) doğrudan döndür
+  if (cleaned.startsWith('90') && cleaned.length === 12) {
+    return cleaned;
+  }
+  
+  // Eğer 10 haneli ise (5522457373) başına 90 ekle
+  if (cleaned.length === 10) {
+    return '90' + cleaned;
+  }
+  
+  // Eğer 11 haneli ve 0 ile başlıyorsa (05522457373 -> zaten 0 kaldırıldı, bu durum olmaz)
+  // Eğer 11 haneli ve 9 ile başlıyorsa (95522457373 gibi hatalı giriş) başına 0 ekleyip tekrar dene
+  if (cleaned.length === 11 && cleaned.startsWith('9')) {
+    return '90' + cleaned.substring(1);
+  }
+  
+  // Diğer durumlarda olduğu gibi döndür (uluslararası numaralar vs.)
+  return cleaned;
+}
+// ==================== NUMARA NORMALİZASYONU SONU ====================
 
 // Helper: POST with node http/https (avoids node-fetch / dynamic imports)
 function httpPost(fullUrl, body, headers = {}) {
@@ -330,7 +370,7 @@ async function sendBulkMessages(req, res) {
          WHERE group_id = ?`,
         [groupId]
       );
-      bulkRecipients = (persons || []).filter(person => person.phone);
+      bulkRecipients = (persons || []).filter(person => person.phone).map(p => ({ ...p, phone: normalizePhoneNumber(p.phone) }));
     } else {
       // numbers can be either an array of phone strings OR an array of objects { phone, name, surname, ... }
       const list = Array.isArray(numbers)
@@ -379,7 +419,7 @@ async function sendBulkMessages(req, res) {
         }
       }
 
-      bulkRecipients = recipients.filter(r => r && r.phone);
+      bulkRecipients = recipients.filter(r => r && r.phone).map(r => ({ ...r, phone: normalizePhoneNumber(r.phone) }));
     }
     if (!bulkRecipients || bulkRecipients.length === 0) {
       return res.status(400).json({ error: 'Geçerli alıcı bulunamadı.' });
@@ -485,4 +525,337 @@ async function sendBulkMessages(req, res) {
   }
 }
 
-module.exports = { sendBulkMessages, sendMultiMessages, sendSingleMessage };
+// ==================== RESİM GÖNDERİM FONKSİYONLARI ====================
+
+// Tekli resim gönderme (çoklu resim destekli)
+async function sendSingleImage(req, res) {
+  try {
+    const { instanceName, number: rawNumber, caption, mediaBase64, mediaBase64Array } = req.body;
+    const number = normalizePhoneNumber(rawNumber);
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const userId = req.user && req.user.id ? req.user.id : req.userId;
+
+    // Çoklu resim array'i veya tek resim
+    const images = mediaBase64Array || (mediaBase64 ? [mediaBase64] : []);
+    
+    if (!instanceName || !number || images.length === 0) {
+      return res.status(400).json({ error: 'Eksik parametreler (instanceName, number, mediaBase64/mediaBase64Array gerekli).' });
+    }
+
+    // Rapor oluştur
+    const now = new Date();
+    const reportResult = await db.query(
+      'INSERT INTO message_reports (user_id, sent_at, total_recipients, delivered_count, failed_count, read_count, is_single) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [userId, now, 1, 0, 0, 0, 1]
+    );
+    const reportId = reportResult.insertId;
+    await db.query(
+      'INSERT INTO messages (user_id, phone, message, status, sent_at, report_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, number, caption || `[${images.length} Resim]`, 'pending', null, reportId]
+    );
+
+    // Resimleri sırayla gönder
+    let successCount = 0;
+    let failCount = 0;
+    const sentAt = new Date();
+    
+    for (let i = 0; i < images.length; i++) {
+      try {
+        const payload = JSON.stringify({
+          number: number,
+          mediatype: 'image',
+          media: images[i],
+          caption: i === 0 ? (caption || '') : '' // Sadece ilk resimde caption
+        });
+        const headers = { apikey: token, 'Content-Type': 'application/json' };
+        const response = await httpPost(`${evoApiBaseUrl}/message/sendMedia/${instanceName}`, payload, headers);
+        if (response.status >= 200 && response.status < 300) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        console.error(`Resim ${i+1} gönderme hatası:`, err.message);
+        failCount++;
+      }
+      // Resimler arası kısa bekleme (WhatsApp flood protection)
+      if (i < images.length - 1) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
+    const status = successCount > 0 ? 'sent' : 'failed';
+
+    // Mesajı güncelle
+    await db.query(
+      'UPDATE messages SET status = ?, sent_at = ? WHERE phone = ? AND status = ? AND report_id = ? ORDER BY id DESC LIMIT 1',
+      [status, sentAt, number, 'pending', reportId]
+    );
+
+    // Raporu güncelle
+    await db.query(
+      'UPDATE message_reports SET delivered_count = ?, failed_count = ? WHERE id = ?',
+      [status === 'sent' ? 1 : 0, status === 'sent' ? 0 : 1, reportId]
+    );
+    await updateReportEndTime(reportId);
+
+    return res.json({ 
+      message: `${successCount}/${images.length} resim gönderildi`, 
+      status, 
+      successCount, 
+      failCount 
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// Çoklu resim gönderme (seçilen kişilere - çoklu resim destekli)
+async function sendMultiImages(req, res) {
+  try {
+    const { instanceName, members, caption, mediaBase64, mediaBase64Array } = req.body;
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const userId = req.user && req.user.id ? req.user.id : req.userId;
+
+    // Çoklu resim array'i veya tek resim
+    const images = mediaBase64Array || (mediaBase64 ? [mediaBase64] : []);
+
+    if (!instanceName || images.length === 0 || !Array.isArray(members) || members.length === 0) {
+      return res.status(400).json({ error: 'Eksik parametreler.' });
+    }
+
+    let success = 0, fail = 0;
+    const now = new Date();
+
+    // Rapor oluştur
+    const reportResult = await db.query(
+      'INSERT INTO message_reports (user_id, sent_at, total_recipients, delivered_count, failed_count, read_count, is_single, is_multi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, now, members.length, 0, 0, 0, 0, 1]
+    );
+    const reportId = reportResult.insertId;
+
+    // Pending mesajları kaydet
+    const insertPendingPromises = members.map(member => {
+      const number = normalizePhoneNumber(member.phone || member.telefon || member.gsm || member.number);
+      const nameVal = member.name || member.isim || member.fullName || member.ad || member.firstName || member.firstname || '';
+      const surnameVal = member.surname || member.soyad || member.lastName || member.lastname || '';
+      return db.query(
+        'INSERT INTO messages (user_id, phone, name, surname, message, status, sent_at, report_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [userId, number, nameVal, surnameVal, caption || `[${images.length} Resim]`, 'pending', null, reportId]
+      );
+    });
+    await Promise.all(insertPendingPromises);
+
+    // Resimleri gönder - her kişiye tüm resimleri sırayla
+    let idx = 0;
+    for (const member of members) {
+      idx++;
+      const number = normalizePhoneNumber(member.phone || member.telefon || member.gsm || member.number);
+      if (!number) continue;
+
+      const personalizedCaption = replacePlaceholders(caption || '', member);
+      const displayName = (member.name || member.isim || '').toString().trim();
+      const displaySurname = (member.surname || member.soyad || '').toString().trim();
+      const display = ((displayName || displaySurname) ? `${displayName} ${displaySurname}`.trim() : '');
+      console.log(`${idx}. kişi ${number} (${display}) - ${images.length} resim gönderiliyor.`);
+
+      let personSuccess = 0;
+      for (let i = 0; i < images.length; i++) {
+        try {
+          const payload = JSON.stringify({
+            number: number,
+            mediatype: 'image',
+            media: images[i],
+            caption: i === 0 ? personalizedCaption : '' // Sadece ilk resimde caption
+          });
+          const headers = { apikey: token, 'Content-Type': 'application/json' };
+          const response = await httpPost(`${evoApiBaseUrl}/message/sendMedia/${instanceName}`, payload, headers);
+          if (response.status >= 200 && response.status < 300) {
+            personSuccess++;
+          }
+        } catch (err) {
+          console.error(`Resim ${i+1} gönderme hatası (${number}):`, err.message);
+        }
+        // Resimler arası kısa bekleme
+        if (i < images.length - 1) {
+          await new Promise(r => setTimeout(r, 300));
+        }
+      }
+
+      const sentAt = new Date();
+      if (personSuccess > 0) {
+        success++;
+        await db.query(
+          'UPDATE messages SET status = ?, sent_at = ?, message = ? WHERE phone = ? AND status = ? AND report_id = ? ORDER BY id DESC LIMIT 1',
+          ['sent', sentAt, personalizedCaption || `[${images.length} Resim]`, number, 'pending', reportId]
+        );
+      } else {
+        fail++;
+        await db.query(
+          'UPDATE messages SET status = ?, sent_at = ?, message = ? WHERE phone = ? AND status = ? AND report_id = ? ORDER BY id DESC LIMIT 1',
+          ['failed', sentAt, personalizedCaption || `[${images.length} Resim]`, number, 'pending', reportId]
+        );
+      }
+    }
+
+    // Raporu güncelle
+    await db.query(
+      'UPDATE message_reports SET delivered_count = ?, failed_count = ? WHERE id = ?',
+      [success, fail, reportId]
+    );
+    await updateReportEndTime(reportId);
+
+    return res.json({ message: `Çoklu resim gönderimi tamamlandı (${images.length} resim)`, success, fail });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// Toplu resim gönderme (gruba veya numaralara - zamanlamalı, çoklu resim destekli)
+async function sendBulkImages(req, res) {
+  try {
+    const { instanceName, groupId, numbers, caption, mediaBase64, mediaBase64Array, testMode } = req.body;
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const userId = req.user && req.user.id ? req.user.id : req.userId;
+
+    // Çoklu resim array'i veya tek resim
+    const images = mediaBase64Array || (mediaBase64 ? [mediaBase64] : []);
+
+    if (!instanceName || images.length === 0 || (!groupId && (!numbers || numbers.length === 0))) {
+      return res.status(400).json({ error: 'Eksik parametreler.' });
+    }
+
+    const limitData = await getUserMessageLimit(req);
+    const messageLimit = limitData?.message_rate_limit;
+    if (!messageLimit || Number(messageLimit) <= 0) {
+      return res.status(403).json({ error: 'Mesaj limiti ayarlanmamış.' });
+    }
+
+    let bulkRecipients = [];
+    if (groupId) {
+      const persons = await db.query(
+        `SELECT phone, name, surname, birth_date, membership_date, city, gender, last_order_date,
+                custom1, custom2, custom3, custom4, custom5, custom6, custom7, custom8, custom9, custom10,
+                custom11, custom12, custom13
+         FROM user_group_members WHERE group_id = ?`,
+        [groupId]
+      );
+      bulkRecipients = (persons || []).filter(person => person.phone).map(p => ({ ...p, phone: normalizePhoneNumber(p.phone) }));
+    } else {
+      const list = Array.isArray(numbers) ? numbers : String(numbers || '').split(',').map(s => s.trim()).filter(Boolean);
+      bulkRecipients = list.map(item => {
+        if (item && typeof item === 'object') {
+          return { phone: normalizePhoneNumber((item.phone || item.telefon || item.gsm || item.number || '').toString().trim()), ...item };
+        }
+        return { phone: normalizePhoneNumber(String(item || '').trim()) };
+      }).filter(r => r.phone);
+    }
+
+    if (!bulkRecipients || bulkRecipients.length === 0) {
+      return res.status(400).json({ error: 'Geçerli alıcı bulunamadı.' });
+    }
+
+    const messagesPerHour = Number(messageLimit);
+    const totalSeconds = 3600;
+    let slotDuration = totalSeconds / messagesPerHour;
+    const effectiveTestMode = TEST_MODE_ENABLED || testMode;
+    if (effectiveTestMode) slotDuration = 5;
+
+    let deliveredCount = 0;
+    let failedCount = 0;
+    const now = new Date();
+
+    // Rapor oluştur
+    const reportResult = await db.query(
+      'INSERT INTO message_reports (user_id, sent_at, total_recipients, delivered_count, failed_count, read_count, is_single, is_multi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, now, bulkRecipients.length, 0, 0, 0, 0, 0]
+    );
+    const reportId = reportResult.insertId;
+
+    // Pending mesajları kaydet
+    const insertPendingPromises = bulkRecipients.map(person => {
+      return db.query(
+        'INSERT INTO messages (user_id, phone, name, surname, message, status, sent_at, report_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [userId, person.phone, person.name || null, person.surname || null, caption || `[${images.length} Resim]`, 'pending', null, reportId]
+      );
+    });
+    await Promise.all(insertPendingPromises);
+
+    // Zamanlamalı gönderim
+    bulkRecipients.forEach((person, i) => {
+      let periodIndex = Math.floor(i / 1);
+      let periodStart = periodIndex * (effectiveTestMode ? 1 : slotDuration);
+      let randomSecondInPeriod = Math.floor(Math.random() * (effectiveTestMode ? 1 : slotDuration));
+      let sendAt = periodStart + randomSecondInPeriod;
+
+      const scheduledTime = `${Math.floor(sendAt/60)}.dakika ${Math.floor(sendAt%60)}.saniye`;
+      const displayName = (person.name || '').toString().trim();
+      const displaySurname = (person.surname || '').toString().trim();
+      const display = ((displayName || displaySurname) ? `${displayName} ${displaySurname}`.trim() : '');
+      console.log(`${i+1}. kişi ${person.phone} (${display}) - ${images.length} resim ${scheduledTime} sonra gönderilecek.`);
+
+      setTimeout(async () => {
+        const personalizedCaption = replacePlaceholders(caption || '', person);
+        let personSuccess = 0;
+        
+        // Her kişiye tüm resimleri sırayla gönder
+        for (let imgIdx = 0; imgIdx < images.length; imgIdx++) {
+          try {
+            const payload = JSON.stringify({
+              number: person.phone,
+              mediatype: 'image',
+              media: images[imgIdx],
+              caption: imgIdx === 0 ? personalizedCaption : '' // Sadece ilk resimde caption
+            });
+            const headers = { apikey: token, 'Content-Type': 'application/json' };
+            const response = await httpPost(`${evoApiBaseUrl}/message/sendMedia/${instanceName}`, payload, headers);
+            if (response.status >= 200 && response.status < 300) {
+              personSuccess++;
+            }
+          } catch (err) {
+            console.error(`Resim ${imgIdx+1} gönderme hatası (${person.phone}):`, err.message);
+          }
+          // Resimler arası kısa bekleme
+          if (imgIdx < images.length - 1) {
+            await new Promise(r => setTimeout(r, 300));
+          }
+        }
+        
+        const sentAt = new Date();
+        if (personSuccess > 0) {
+          deliveredCount++;
+          await db.query(
+            'UPDATE messages SET status = ?, sent_at = ?, message = ? WHERE phone = ? AND status = ? AND report_id = ? ORDER BY id DESC LIMIT 1',
+            ['sent', sentAt, personalizedCaption || `[${images.length} Resim]`, person.phone, 'pending', reportId]
+          );
+        } else {
+          failedCount++;
+          await db.query(
+            'UPDATE messages SET status = ?, sent_at = ?, message = ? WHERE phone = ? AND status = ? AND report_id = ? ORDER BY id DESC LIMIT 1',
+            ['failed', sentAt, personalizedCaption || `[${images.length} Resim]`, person.phone, 'pending', reportId]
+          );
+        }
+
+        // Son mesajsa raporu güncelle
+        if (i === bulkRecipients.length - 1) {
+          await updateReportEndTime(reportId);
+          try {
+            await db.query(
+              'UPDATE message_reports SET delivered_count = ?, failed_count = ? WHERE id = ?',
+              [deliveredCount, failedCount, reportId]
+            );
+          } catch (reportErr) {}
+        }
+      }, sendAt * 1000);
+    });
+
+    return res.json({ message: `Toplu resim gönderimi başlatıldı (${images.length} resim)`, count: bulkRecipients.length });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { sendBulkMessages, sendMultiMessages, sendSingleMessage, sendSingleImage, sendMultiImages, sendBulkImages };

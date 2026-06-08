@@ -1,81 +1,278 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
   <title>Kayıt Ol - WaMark</title>
   <link rel="icon" type="image/png" href="img/WaMark_Mini_Logo.png">
   <link href="css/styles.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+  
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #1e2229; 
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    body::before, body::after {
+      content: "";
+      position: fixed; 
+      width: 200%;
+      height: 200%;
+      top: -50%;
+      left: -50%;
+      opacity: 0.12; 
+      background-image: 
+        radial-gradient(#25d366 1px, transparent 1px), 
+        radial-gradient(rgba(33, 150, 243, 0.4) 1px, transparent 1px); 
+      background-size: 50px 50px;
+      background-position: 0 0, 25px 25px;
+      animation: networkFlow 60s linear infinite; 
+      z-index: -1;
+    }
+
+    body::after {
+      background-size: 80px 80px;
+      background-position: 10px 10px, 50px 50px;
+      animation: networkFlowReverse 90s linear infinite; 
+      opacity: 0.08;
+    }
+
+    @keyframes networkFlow {
+      from { transform: rotate(0deg) translate(-5%, -5%); }
+      to { transform: rotate(5deg) translate(5%, 5%); }
+    }
+    @keyframes networkFlowReverse {
+      from { transform: rotate(0deg) translate(5%, 5%); }
+      to { transform: rotate(-5deg) translate(-5%, -5%); }
+    }
+
+    .bg-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle at center, transparent 0%, #15181d 100%);
+      z-index: -1;
+    }
+
+    #layoutAuthentication {
+      display: flex !important;
+      flex-direction: column !important;
+      min-height: 100vh !important;
+      width: 100% !important;
+      justify-content: center !important;
+      align-items: center !important;
+      position: relative;
+      z-index: 1;
+    }
+
+    #layoutAuthentication_content {
+      width: 100% !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      flex: 1 0 auto !important;
+      padding: 2rem 1rem !important;
+    }
+
+    .auth-container {
+      width: 100% !important;
+      max-width: 540px !important; 
+      margin: 0 auto !important;
+    }
+
+    .auth-card {
+      background: rgba(30, 34, 41, 0.65) !important; 
+      backdrop-filter: blur(16px); 
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08) !important; 
+      border-radius: 24px !important; 
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35) !important;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      overflow: hidden;
+    }
+
+    .auth-card:hover {
+      transform: translateY(-4px); 
+      box-shadow: 0 35px 70px rgba(37, 211, 102, 0.12) !important; 
+    }
+
+    .auth-header {
+      padding: 2.5rem 2rem 1rem 2rem !important;
+      background: transparent !important;
+      border: none !important;
+    }
+
+    .auth-header h3 {
+      color: #ffffff !important;
+      font-weight: 800 !important;
+      letter-spacing: -0.5px;
+      margin-bottom: 0.5rem;
+    }
+
+    .auth-header p {
+      color: rgba(255, 255, 255, 0.5) !important;
+      font-size: 0.9rem;
+    }
+
+    .auth-body {
+      padding: 1rem 2rem 2.5rem 2rem !important;
+    }
+
+    .form-floating > .form-control {
+      background-color: rgba(255, 255, 255, 0.02) !important;
+      border: 1px solid rgba(255, 255, 255, 0.07) !important;
+      color: #ffffff !important;
+      border-radius: 14px !important;
+    }
+
+    .form-floating > .form-control:focus {
+      background-color: rgba(255, 255, 255, 0.04) !important;
+      border-color: #25d366 !important; 
+      box-shadow: 0 0 0 0.25s rgba(37, 211, 102, 0.15) !important;
+    }
+
+    .form-floating > label {
+      color: rgba(255, 255, 255, 0.4) !important;
+    }
+
+    .form-floating > .form-control:focus ~ label,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label {
+      color: #25d366 !important;
+    }
+
+    .btn-auth {
+      background: linear-gradient(135deg, #25d366 0%, #1da851 100%) !important;
+      border: none !important;
+      color: #ffffff !important;
+      padding: 0.85rem !important;
+      border-radius: 14px !important;
+      font-weight: 600 !important;
+      font-size: 1rem;
+      transition: all 0.25s ease !important;
+      box-shadow: 0 4px 18px rgba(37, 211, 102, 0.25) !important;
+    }
+
+    .btn-auth:hover {
+      transform: scale(1.01);
+      box-shadow: 0 6px 25px rgba(37, 211, 102, 0.4) !important;
+    }
+
+    .auth-footer {
+      background: rgba(0, 0, 0, 0.1) !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.03) !important;
+      padding: 1.2rem !important;
+      border-radius: 0 0 24px 24px !important;
+    }
+    .auth-footer a {
+      color: #ffffff !important;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .auth-footer a:hover {
+      color: #25d366 !important;
+    }
+
+    /* Autofill & Focus Bozulma Engelleyiciler */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover, 
+    input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 1000px #1b1f25 inset !important; 
+        -webkit-text-fill-color: #ffffff !important;
+        color: #ffffff !important;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+        border-color: rgba(255, 255, 255, 0.07) !important;
+    }
+    input:-webkit-autofill:focus {
+        border-color: #25d366 !important; 
+        outline: none !important;
+        -webkit-box-shadow: 0 0 0 0.25s rgba(37, 211, 102, 0.15), inset 0 0 0 1000px #1b1f25 !important;
+        box-shadow: 0 0 0 0.25s rgba(37, 211, 102, 0.15), inset 0 0 0 1000px #1b1f25 !important;
+        -webkit-text-fill-color: #ffffff !important;
+        color: #ffffff !important;
+    }
+  </style>
 </head>
-<body class="bg-primary">
+<body>
+  <div class="bg-overlay"></div>
+
   <div id="layoutAuthentication">
     <div id="layoutAuthentication_content">
-      <main>
-        <div class="container">
-          <div class="row justify-content-center">
-            <div class="col-lg-7">
-              <div class="card shadow-lg border-0 rounded-lg mt-5">
-                <div class="card-header">
-                  <h3 class="text-center font-weight-light my-4">Hesap Oluştur</h3>
+      <div class="auth-container">
+        
+        <div class="text-center mb-4">
+          <a href="main.html">
+            <img src="img/WaMark_Full_Logo_White_Title.png" alt="WaMark" style="height: 52px; object-fit: contain;">
+          </a>
+        </div>
+
+        <div class="card auth-card">
+          <div class="card-header auth-header text-center">
+            <h3><i class="bi bi-person-plus me-2 text-success"></i>Hesap Oluştur</h3>
+            <p class="mb-0">WaMark ayrıcalıklarından faydalanmak için formu doldurun</p>
+          </div>
+          
+          <div class="card-body auth-body">
+            <form id="registerForm">
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <div class="form-floating mb-3 mb-md-0">
+                    <input class="form-control" id="inputFirstName" type="text" placeholder="Ad" required />
+                    <label for="inputFirstName"><i class="bi bi-person me-2"></i>Ad</label>
+                  </div>
                 </div>
-                <div class="card-body">
-                  <form id="registerForm">
-                    <!-- first/last name -->
-                    <div class="row mb-3">
-                      <div class="col-md-6">
-                        <div class="form-floating mb-3 mb-md-0">
-                          <input class="form-control" id="inputFirstName" type="text" placeholder="Enter your first name" required />
-                          <label for="inputFirstName">Ad</label>
-                        </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="form-floating">
-                          <input class="form-control" id="inputLastName" type="text" placeholder="Enter your last name" required />
-                          <label for="inputLastName">Soyad</label>
-                        </div>
-                      </div>
-                    </div>
-                    <!-- phone -->
-                    <div class="form-floating mb-3">
-                      <input class="form-control" id="inputPhone" type="text" placeholder="Enter your phone number" required />
-                      <label for="inputPhone">Telefon Numarası</label>
-                    </div>
-                    <!-- email -->
-                    <div class="form-floating mb-3">
-                      <input class="form-control" id="inputEmail" type="email" placeholder="name@example.com" required />
-                      <label for="inputEmail">Mail Adresi</label>
-                    </div>
-                    <!-- password -->
-                    <div class="row mb-3">
-                      <div class="col-md-6">
-                        <div class="form-floating mb-3 mb-md-0">
-                          <input class="form-control" id="inputPassword" type="password" placeholder="Create a password" required />
-                          <label for="inputPassword">Şifre</label>
-                        </div>
-                      </div>
-                      <div class="col-md-6">
-                        <div class="form-floating mb-3 mb-md-0">
-                          <input class="form-control" id="inputPasswordConfirm" type="password" placeholder="Confirm password" required />
-                          <label for="inputPasswordConfirm">Şifreyi Onayla</label>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="d-grid">
-                      <button class="btn btn-primary btn-block" type="submit">Hesap Oluştur</button>
-                    </div>
-                  </form>
-                </div>
-                <div class="card-footer text-center py-3">
-                  <div class="small"><a href="login.html">Hesabınız var mı? Giriş yapın</a></div>
+                <div class="col-md-6">
+                  <div class="form-floating">
+                    <input class="form-control" id="inputLastName" type="text" placeholder="Soyad" required />
+                    <label for="inputLastName"><i class="bi bi-person me-2"></i>Soyad</label>
+                  </div>
                 </div>
               </div>
-            </div>
+              <div class="form-floating mb-3">
+                <input class="form-control" id="inputPhone" type="text" placeholder="Telefon Numarası" required />
+                <label for="inputPhone"><i class="bi bi-telephone me-2"></i>Telefon Numarası</label>
+              </div>
+              <div class="form-floating mb-3">
+                <input class="form-control" id="inputEmail" type="email" placeholder="name@example.com" required />
+                <label for="inputEmail"><i class="bi bi-envelope me-2"></i>Mail Adresi</label>
+              </div>
+              <div class="row mb-4">
+                <div class="col-md-6">
+                  <div class="form-floating mb-3 mb-md-0">
+                    <input class="form-control" id="inputPassword" type="password" placeholder="Şifre" required />
+                    <label for="inputPassword"><i class="bi bi-lock me-2"></i>Şifre</label>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-floating mb-3 mb-md-0">
+                    <input class="form-control" id="inputPasswordConfirm" type="password" placeholder="Şifreyi Onayla" required />
+                    <label for="inputPasswordConfirm"><i class="bi bi-shield-check me-2"></i>Şifreyi Onayla</label>
+                  </div>
+                </div>
+              </div>
+              <div class="d-grid">
+                <button class="btn btn-auth btn-block" type="submit"><i class="bi bi-check-circle me-2"></i>Kayıt İşlemini Tamamla</button>
+              </div>
+            </form>
+          </div>
+          
+          <div class="card-footer text-center auth-footer">
+            <div class="small"><a href="login.html">Hesabınız var mı? Giriş yapın</a></div>
           </div>
         </div>
-      </main>
+
+      </div>
     </div>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
   <script>
     document.getElementById('registerForm').addEventListener('submit', async function (e) {
       e.preventDefault();
